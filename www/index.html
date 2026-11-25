@@ -1,0 +1,478 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Chronicles of the Bonded Blade — The Shattered Covenant</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Courier New', monospace; }
+    body {
+      background: #12131a;
+      color: #e8eaf6;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 10px;
+    }
+    #game-container {
+      width: 100%;
+      max-width: 580px;
+      background: #1c1e2b;
+      border: 2px solid #4a5568;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+    }
+    header {
+      background: #252838;
+      padding: 10px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 2px solid #3a3f58;
+    }
+    header h1 { font-size: 13px; color: #ffd166; letter-spacing: 0.8px; }
+    .badges { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    .badge {
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: bold;
+      color: #fff;
+    }
+    #party-badge { background: #3a86ff; }
+    #bond-badge { background: #ff4d6d; }
+    #boss-banner {
+      display: none;
+      background: #2b1829;
+      border-bottom: 2px solid #9d4edd;
+      padding: 8px 12px;
+      font-size: 11px;
+    }
+    .boss-top { display: flex; justify-content: space-between; margin-bottom: 4px; font-weight: bold; color: #ffccd5; }
+    .hp-bar-bg { width: 100%; height: 8px; background: #14101a; border-radius: 4px; overflow: hidden; }
+    .hp-bar-fill { height: 100%; background: linear-gradient(90deg, #ef476f, #ffd166); transition: width 0.2s; }
+    .boss-elem { margin-top: 4px; color: #d8b4fe; }
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      background: #162419;
+      image-rendering: pixelated;
+    }
+    #ui-panel { padding: 12px; background: #1c1e2b; border-top: 2px solid #3a3f58; }
+    .lore-box {
+      background: #171926;
+      border-left: 3px solid #ffd166;
+      padding: 7px 9px;
+      margin-bottom: 10px;
+      font-size: 11px;
+      line-height: 1.4;
+      color: #f3e8ff;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 6px;
+      margin-bottom: 10px;
+      font-size: 11px;
+    }
+    .char-card {
+      background: #252838;
+      padding: 6px 8px;
+      border-radius: 4px;
+      border-left: 3px solid #4cc9f0;
+      cursor: pointer;
+    }
+    .char-card.selected { outline: 2px solid #ffd166; background: #2d3247; }
+    .char-card.dead { opacity: 0.45; }
+    .forge-box {
+      background: #161824;
+      border: 1px solid #2d3246;
+      border-radius: 6px;
+      padding: 8px;
+      margin-bottom: 10px;
+      font-size: 11px;
+    }
+    .forge-row {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+    select {
+      background: #252838;
+      color: #fff;
+      border: 1px solid #4a5568;
+      padding: 6px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      flex: 1;
+      min-width: 130px;
+    }
+    #log {
+      background: #11131c;
+      border: 1px solid #2d3246;
+      padding: 8px;
+      height: 92px;
+      overflow-y: auto;
+      font-size: 12px;
+      line-height: 1.4;
+      margin-bottom: 10px;
+      color: #a5b4fc;
+    }
+    .controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .summon-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      margin-top: 6px;
+    }
+    button {
+      background: #2b3044;
+      color: #fff;
+      border: 1px solid #4a5568;
+      padding: 9px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: bold;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    button:active { background: #4a5568; }
+    button.slot-btn { background: #3b4261; border-color: #ffd166; color: #ffd166; }
+    button.summon-btn { background: #253654; border-color: #48cae4; color: #caf0f8; }
+    button.combo {
+      background: linear-gradient(45deg, #ff4d6d, #7209b7);
+      border-color: #ffccd5;
+      grid-column: span 3;
+    }
+    button.storm {
+      background: linear-gradient(45deg, #ff9f1c, #e71d36);
+      border-color: #ffe66d;
+      grid-column: span 3;
+    }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <header>
+      <h1>⚔️ BONDED BLADE RPG</h1>
+      <div class="badges">
+        <div id="party-badge" class="badge">👥 PARTY: 1/5</div>
+        <div id="bond-badge" class="badge">❤️ BOND: 30%</div>
+      </div>
+    </header>
+
+    <div id="boss-banner">
+      <div class="boss-top">
+        <span id="boss-title">Elder Shadow Golem — Phase I</span>
+        <span id="boss-hp-text">280 / 280 HP</span>
+      </div>
+      <div class="hp-bar-bg"><div id="boss-hp-bar" class="hp-bar-fill" style="width: 100%;"></div></div>
+      <div id="boss-elem" class="boss-elem">Weak: EARTH (🪨) | Resist: WIND (🌪️)</div>
+    </div>
+
+    <canvas id="world" width="448" height="336"></canvas>
+
+    <div id="ui-panel">
+      <div class="lore-box" id="lore-box"></div>
+      <div class="stats-grid" id="party-stats"></div>
+
+      <div class="forge-box">
+        <div><strong>💎 Elemental Weapon Gem Slotting</strong> (Click a party card to select target)</div>
+        <div class="forge-row">
+          <select id="gem-select"></select>
+          <button id="slot-gem-btn" class="slot-btn" type="button">Socket Gem</button>
+        </div>
+      </div>
+
+      <div id="log"></div>
+      <div class="controls" id="controls"></div>
+      <div class="summon-row" id="summon-controls"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initialState, MAX_PARTY_SIZE } from './src/core/state.js';
+    import { movePlayer, performCombatAction, equipGemAction } from './src/core/gameLoop.js';
+    import { canTriggerSoulForgedBlade, canTriggerFullBondStorm } from './src/party/friendship.js';
+    import { ROSTER } from './src/party/characters.js';
+    import { GEMS, getMemberEffectiveAtk } from './src/gear/gems.js';
+    import { SUMMONS, canInvokeSummon } from './src/combat/summons.js';
+    import { getBossPhase } from './src/combat/bossAI.js';
+    import { STARTER_MAP, TILE_SIZE } from './src/world/tilemap.js';
+    import { STORY } from './src/world/story.js';
+
+    const canvas = document.getElementById('world');
+    const ctx = canvas.getContext('2d');
+    const loreBox = document.getElementById('lore-box');
+    const logEl = document.getElementById('log');
+    const statsEl = document.getElementById('party-stats');
+    const controlsEl = document.getElementById('controls');
+    const summonControlsEl = document.getElementById('summon-controls');
+    const gemSelectEl = document.getElementById('gem-select');
+    const slotGemBtn = document.getElementById('slot-gem-btn');
+    const bondBadge = document.getElementById('bond-badge');
+    const partyBadge = document.getElementById('party-badge');
+    const bossBanner = document.getElementById('boss-banner');
+    const bossTitle = document.getElementById('boss-title');
+    const bossHpText = document.getElementById('boss-hp-text');
+    const bossHpBar = document.getElementById('boss-hp-bar');
+    const bossElem = document.getElementById('boss-elem');
+
+    let state = initialState;
+
+    function addLog(msg) {
+      logEl.innerHTML += `<div>&gt; ${msg}</div>`;
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    addLog(`📖 ${STORY.subtitle}: ${STORY.prologue}`);
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (let y = 0; y < STARTER_MAP.length; y++) {
+        for (let x = 0; x < STARTER_MAP[y].length; x++) {
+          const tile = STARTER_MAP[y][x];
+          ctx.fillStyle = tile === 1 ? '#0f291e' : '#244732';
+          ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE - 1, TILE_SIZE - 1);
+
+          if (tile === 2) {
+            ctx.fillStyle = '#ffd166';
+            ctx.fillRect(x * TILE_SIZE + 7, y * TILE_SIZE + 7, 14, 14);
+          }
+          if (tile === 3 && state.enemy.hp > 0) {
+            ctx.fillStyle = '#ef476f';
+            ctx.fillRect(x * TILE_SIZE + 3, y * TILE_SIZE + 3, 22, 22);
+          }
+        }
+      }
+
+      for (const node of state.gemNodes) {
+        if (!node.collected) {
+          ctx.fillStyle = node.color;
+          ctx.beginPath();
+          ctx.arc(
+            node.x * TILE_SIZE + TILE_SIZE / 2,
+            node.y * TILE_SIZE + TILE_SIZE / 2,
+            7,
+            0,
+            Math.PI * 2
+          );
+          ctx.fill();
+        }
+      }
+
+      for (const npc of state.recruitables) {
+        if (!npc.recruited) {
+          ctx.fillStyle = npc.color;
+          ctx.fillRect(npc.x * TILE_SIZE + 5, npc.y * TILE_SIZE + 5, 18, 18);
+        }
+      }
+
+      ctx.fillStyle = '#4cc9f0';
+      ctx.fillRect(state.player.x * TILE_SIZE + 5, state.player.y * TILE_SIZE + 5, 18, 18);
+    }
+
+    function updateGemUI() {
+      const uniqueGems = [...new Set(state.gemInventory)];
+      if (!uniqueGems.length) {
+        gemSelectEl.innerHTML = `<option value="">Bag Empty (Find Gem Orbs)</option>`;
+        slotGemBtn.disabled = true;
+        return;
+      }
+
+      if (!uniqueGems.includes(state.selectedGemId)) {
+        state.selectedGemId = uniqueGems[0];
+      }
+
+      gemSelectEl.innerHTML = uniqueGems
+        .map((gemId) => {
+          const g = GEMS[gemId];
+          const count = state.gemInventory.filter((id) => id === gemId).length;
+          return `<option value="${gemId}" ${gemId === state.selectedGemId ? 'selected' : ''}>${g.symbol} ${g.name} (x${count}) — ${g.desc}</option>`;
+        })
+        .join('');
+      slotGemBtn.disabled = false;
+    }
+
+    function updateBossUI() {
+      if (state.mode === 'COMBAT' || state.enemy.hp < state.enemy.maxHp) {
+        bossBanner.style.display = 'block';
+        const phase = getBossPhase(state.enemy.hp, state.enemy.maxHp);
+        const pct = Math.max(0, Math.min(100, (state.enemy.hp / state.enemy.maxHp) * 100));
+        bossTitle.textContent = `${state.enemy.name} — Phase ${phase.phase}: ${phase.name}`;
+        bossHpText.textContent = `${state.enemy.hp} / ${state.enemy.maxHp} HP`;
+        bossHpBar.style.width = `${pct}%`;
+        bossElem.textContent = `Weakness: ${phase.weakness.toUpperCase()} (1.5x) | Resistance: ${phase.resistance.toUpperCase()} (0.65x) | Next Atk: ${phase.attackName}`;
+      } else {
+        bossBanner.style.display = 'none';
+      }
+    }
+
+    function updateLoreUI() {
+      const chap = STORY.chapters[state.chapterIndex] || STORY.chapters[0];
+      loreBox.innerHTML = `<strong>${chap.title}</strong> — ${chap.text}`;
+    }
+
+    function updateUI() {
+      partyBadge.textContent = `👥 PARTY: ${state.party.length}/${MAX_PARTY_SIZE}`;
+      bondBadge.textContent = `❤️ BOND: ${state.bond}%`;
+
+      updateLoreUI();
+      updateBossUI();
+
+      if (!state.party.some((m) => m.id === state.selectedMemberId)) {
+        state.selectedMemberId = state.party[0].id;
+      }
+
+      statsEl.innerHTML = state.party
+        .map((p) => {
+          const gem = p.slottedGem ? GEMS[p.slottedGem] : null;
+          const effAtk = getMemberEffectiveAtk(p);
+          const isSelected = p.id === state.selectedMemberId;
+          return `
+            <div class="char-card ${isSelected ? 'selected' : ''} ${p.hp <= 0 ? 'dead' : ''}" data-member="${p.id}" style="border-left-color: ${p.color};">
+              <strong>${isSelected ? '▶ ' : ''}${p.name}</strong> (${p.role})<br>
+              ${p.weapon} | ATK ${effAtk}<br>
+              Gem: ${gem ? `${gem.symbol} ${gem.name}` : 'None'}<br>
+              HP ${p.hp}/${p.maxHp} | MP ${p.mp}
+            </div>
+          `;
+        })
+        .join('');
+
+      updateGemUI();
+
+      if (state.mode === 'EXPLORE') {
+        controlsEl.innerHTML = `
+          <div></div><button data-act="up">▲</button><div></div>
+          <button data-act="left">◀</button><button data-act="talk">RADAR</button><button data-act="right">▶</button>
+          <div></div><button data-act="down">▼</button><div></div>
+        `;
+        summonControlsEl.innerHTML = '';
+      } else if (state.mode === 'COMBAT') {
+        const canCombo = canTriggerSoulForgedBlade(state.bond, state.party.length);
+        const canStorm = canTriggerFullBondStorm(state.bond, state.party.length);
+        controlsEl.innerHTML = `
+          <button data-act="SLASH">⚔️ Weapon</button>
+          <button data-act="MAGIC">✨ Magic</button>
+          <button data-act="CHEER">🤝 Rally</button>
+          <button class="combo" data-act="COMBO" ${canCombo ? '' : 'disabled'}>
+            ⚔️✨ SOUL-FORGED BLADE (Req: 50% Bond + 2 Allies)
+          </button>
+          <button class="storm" data-act="BOND_STORM" ${canStorm ? '' : 'disabled'}>
+            🌟 FIVE-FOLD BOND STORM (Req: 5/5 Party + 80% Bond)
+          </button>
+        `;
+
+        summonControlsEl.innerHTML = Object.values(SUMMONS)
+          .map((s) => {
+            const enabled = canInvokeSummon(s, state.bond, state.party.length);
+            return `<button class="summon-btn" data-summon="${s.id}" title="${s.desc}" ${enabled ? '' : 'disabled'}>${s.icon} ${s.name.split(',')[0]} (-${s.bondCost}%)</button>`;
+          })
+          .join('');
+      } else {
+        controlsEl.innerHTML = `<button class="combo" data-act="RELOAD">🏆 VICTORY! Play Again</button>`;
+        summonControlsEl.innerHTML = '';
+      }
+    }
+
+    function handleStep(dx, dy) {
+      const result = movePlayer(state, dx, dy);
+      state = result.state;
+      result.messages.forEach(addLog);
+      draw();
+      updateUI();
+    }
+
+    function handleCombat(actionType, summonId = null) {
+      const result = performCombatAction(state, actionType, summonId);
+      state = result.state;
+      result.messages.forEach(addLog);
+      draw();
+      updateUI();
+
+      if (result.defeat) {
+        setTimeout(() => location.reload(), 1500);
+      }
+    }
+
+    statsEl.addEventListener('click', (event) => {
+      const card = event.target.closest('.char-card[data-member]');
+      if (!card) return;
+      state.selectedMemberId = card.dataset.member;
+      const member = state.party.find((m) => m.id === state.selectedMemberId);
+      if (member) {
+        addLog(`Selected ${member.name} (${member.weapon} • "${member.quote}")`);
+      }
+      updateUI();
+    });
+
+    gemSelectEl.addEventListener('change', (event) => {
+      state.selectedGemId = event.target.value;
+    });
+
+    slotGemBtn.addEventListener('click', () => {
+      const gemId = gemSelectEl.value;
+      if (!gemId) return;
+      const res = equipGemAction(state, state.selectedMemberId, gemId);
+      state = res.state;
+      addLog(res.message);
+      updateUI();
+    });
+
+    controlsEl.addEventListener('click', (event) => {
+      const btn = event.target.closest('button[data-act]');
+      if (!btn || btn.disabled) return;
+      const act = btn.dataset.act;
+
+      if (act === 'up') handleStep(0, -1);
+      else if (act === 'down') handleStep(0, 1);
+      else if (act === 'left') handleStep(-1, 0);
+      else if (act === 'right') handleStep(1, 0);
+      else if (act === 'talk') {
+        const remainingAllies = state.recruitables.filter((n) => !n.recruited);
+        const remainingGems = state.gemNodes.filter((g) => !g.collected);
+        const parts = [];
+        if (remainingAllies.length) {
+          parts.push(
+            'Allies: ' +
+              remainingAllies.map((n) => `${ROSTER[n.key].name} (${n.x},${n.y})`).join(', ')
+          );
+        }
+        if (remainingGems.length) {
+          parts.push(
+            'Gems: ' +
+              remainingGems.map((g) => `${GEMS[g.gemId].symbol} (${g.x},${g.y})`).join(', ')
+          );
+        }
+        addLog(
+          parts.length
+            ? `${parts.join(' | ')}. Boss at (14, 1).`
+            : 'All allies and gem orbs found! Head to the Elder Shadow Golem at (14, 1).'
+        );
+      } else if (act === 'RELOAD') {
+        location.reload();
+      } else {
+        handleCombat(act);
+      }
+    });
+
+    summonControlsEl.addEventListener('click', (event) => {
+      const btn = event.target.closest('button[data-summon]');
+      if (!btn || btn.disabled) return;
+      handleCombat('SUMMON', btn.dataset.summon);
+    });
+
+    draw();
+    updateUI();
+  </script>
+</body>
+</html>
