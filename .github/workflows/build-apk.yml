@@ -1,0 +1,54 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Stage web files into www/
+        run: |
+          rm -rf www
+          mkdir -p www
+          cp index.html www/
+          cp -r src www/
+          [ -d assets ] && cp -r assets www/ || true
+
+      - name: Initialize Capacitor Android
+        run: |
+          npm install --no-audit --no-fund @capacitor/core @capacitor/cli @capacitor/android
+          npx cap init "Bonded Blade RPG" "com.gabriel.bondedblade" --web-dir www
+          npx cap add android
+          npx cap sync android
+
+      - name: Assemble Debug APK
+        run: |
+          cd android
+          ./gradlew assembleDebug
+          cp app/build/outputs/apk/debug/app-debug.apk ../bonded-blade-rpg.apk
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bonded-blade-rpg-apk
+          path: bonded-blade-rpg.apk
